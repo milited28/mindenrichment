@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mind Enrichment — Learning starts with ME.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand" onclick="showView('market')">
+    <div class="brand-badge"><img src="assets/logo.jpg" alt="Mind Enrichment logo" /></div>
+    <div class="brand-text">
+      <span class="full">Mind Enrichment</span>
+      <span class="tag">Learning starts with ME.</span>
+    </div>
+  </div>
+  <nav class="mainnav">
+    <button class="navlink active" id="nav-market" onclick="showView('market')">Find an Educator</button>
+    <button class="navlink" id="nav-teach" onclick="showView('teach')">Join as an Educator</button>
+  </nav>
+  <div class="header-right">
+    <span class="link-about" onclick="showView('about')">About ME</span>
+    <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Switch to dark mode">
+      <svg id="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg id="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <button class="btn-signin" id="btn-signin" onclick="handleSigninButtonClick()">Sign in</button>
+  </div>
+</header>
+
+<!-- ================= SIGN IN MODAL ================= -->
+<div class="modal-overlay hidden" id="signin-overlay" onclick="closeSigninOnOverlay(event)">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header" style="padding:28px 28px 0;">
+      <button class="modal-close" onclick="closeSignin()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <div class="me-avatar" style="margin-bottom:14px;"><img src="assets/logo.jpg" alt="Mind Enrichment logo" /></div>
+      <h2 id="signin-title" style="font-size:21px;font-weight:800;margin:0 0 4px;">Sign in to Mind Enrichment</h2>
+      <p id="signin-subtitle" style="font-size:13.5px;color:var(--text-secondary);margin:0 0 18px;">Choose your account type to continue.</p>
+    </div>
+    <div class="modal-body" style="padding:0 28px 28px;">
+      <div style="display:flex;gap:8px;margin-bottom:20px;background:var(--bg);padding:4px;border-radius:999px;">
+        <button id="signin-tab-parent" class="signin-tab active" onclick="setSigninType('parent')" style="flex:1;padding:9px;border-radius:999px;border:none;font-family:var(--font);font-size:13.5px;font-weight:700;cursor:pointer;">I'm a Parent</button>
+        <button id="signin-tab-educator" class="signin-tab" onclick="setSigninType('educator')" style="flex:1;padding:9px;border-radius:999px;border:none;font-family:var(--font);font-size:13.5px;font-weight:700;cursor:pointer;">I'm an Educator</button>
+      </div>
+
+      <div id="signin-name-field" style="display:none;">
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Full name</label>
+        <input type="text" id="signin-name-input" placeholder="Your full name" class="signin-input" />
+      </div>
+
+      <div id="signin-parent-fields" style="display:none;">
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Child's name</label>
+        <input type="text" id="signin-child-name-input" placeholder="Your child's name" class="signin-input" />
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Child's level</label>
+        <select id="signin-child-level-input" class="signin-input">
+          <option value="">Select a level</option>
+          <option>Preschool</option><option>Primary 1</option><option>Primary 2</option><option>Primary 3</option>
+          <option>Primary 4</option><option>Primary 5</option><option>Primary 6</option>
+          <option>Secondary 1</option><option>Secondary 2</option><option>Secondary 3</option>
+          <option>Secondary 4</option><option>Secondary 5</option>
+          <option>JC1</option><option>JC2</option><option>Poly</option><option>University</option>
+        </select>
+      </div>
+
+      <div id="signin-educator-fields" style="display:none;">
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Headline</label>
+        <input type="text" id="signin-headline-input" placeholder="e.g. Ex-MOE Math teacher, 8 yrs experience" class="signin-input" />
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Short bio</label>
+        <textarea id="signin-bio-input" rows="3" placeholder="Tell parents about your teaching style" class="signin-input" style="resize:none;"></textarea>
+        <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Years of experience</label>
+        <input type="number" id="signin-years-input" min="0" step="0.5" class="signin-input" />
+      </div>
+
+      <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Email</label>
+      <input type="email" id="signin-email-input" placeholder="you@example.com" class="signin-input" />
+      <label style="font-size:12.5px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Password</label>
+      <input type="password" id="signin-password-input" placeholder="••••••••" class="signin-input" style="margin-bottom:12px;" />
+
+      <p id="signin-error" style="display:none;font-size:12.5px;color:var(--error);font-weight:600;margin:0 0 12px;"></p>
+
+      <button class="btn-ask" id="signin-submit-btn" style="width:100%;justify-content:center;" onclick="confirmSignin()"><span id="signin-submit-label">Sign in as <span id="signin-type-label">Parent</span></span></button>
+      <p id="signin-toggle-line" style="text-align:center;font-size:12.5px;color:var(--text-secondary);margin:16px 0 0;">New to Mind Enrichment? <span style="color:var(--blue);font-weight:600;cursor:pointer;" onclick="switchSigninMode('signup')">Create an account</span></p>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- ================= MARKETPLACE / HOMEPAGE ================= -->
+  <div id="view-market">
+    <section class="hero-split">
+
+      <!-- LEFT: differentiation -->
+      <div class="hero-left">
+        <div class="eyebrow"><span class="dot"></span>AI-Powered &middot; Human-Approved</div>
+        <h1 class="headline">Because every child learns <span class="accent">differently.</span></h1>
+        <p class="subhead">Most tuition agencies match on subject and availability alone. ME goes further — understanding your child's ability, learning style and goals first, then recommending educators who genuinely fit.</p>
+
+        <div class="diff-list">
+          <div class="diff-item">
+            <div class="diff-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5c0 2-1 3-2 4l-1 1v2H10v-2l-1-1c-1-1-2-2-2-4a5 5 0 015-5z"/><path d="M9 21h6M10 18h4"/></svg></div>
+            <div class="diff-text"><strong>Matched by ability, not just subject</strong><span>ME AI asks the questions a good tuition coordinator would — then matches accordingly.</span></div>
+          </div>
+          <div class="diff-item">
+            <div class="diff-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+            <div class="diff-text"><strong>Every credential independently verified</strong><span>Degrees, diplomas and certificates are checked by our team before an educator goes live.</span></div>
+          </div>
+          <div class="diff-item">
+            <div class="diff-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15z"/></svg></div>
+            <div class="diff-text"><strong>Personalised to learning style</strong><span>Visual, hands-on, structured or exploratory — ME factors in how your child learns best, not just what.</span></div>
+          </div>
+          <div class="diff-item">
+            <div class="diff-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg></div>
+            <div class="diff-text"><strong>Real reviews from Singapore parents</strong><span>No inflated agency profiles — every review comes from a verified booking.</span></div>
+          </div>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat"><b>5,000+</b><span>Verified Educators</span></div>
+          <div class="stat"><b>10,000+</b><span>Families Supported</span></div>
+          <div class="stat"><b>98%</b><span>Match Accuracy</span></div>
+          <div class="stat"><b>4.9★</b><span>Parent Satisfaction</span></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: ME AI chat panel -->
+      <div class="chat-panel">
+        <div class="chat-head">
+          <div class="me-avatar"><img src="assets/logo.jpg" alt="Mind Enrichment logo" /></div>
+          <div class="chat-head-text">
+            <strong>ME AI</strong>
+            <span>Your educator-matching assistant</span>
+          </div>
+          <div class="chat-head-status"><span class="pulse"></span>Online</div>
+        </div>
+
+        <div class="chat-greeting">
+          <div class="greeting-bubble">Hi, I'm <strong>ME</strong>. Before I recommend anyone, I'd like to understand your child a little. Tell me in your own words — the more you share, the better I can match.</div>
+        </div>
+
+        <div class="prompt-suggestions">
+          <div class="prompt-chip" onclick="usePrompt(0)">My child's level & grade</div>
+          <div class="prompt-chip" onclick="usePrompt(1)">Subject or skill</div>
+          <div class="prompt-chip" onclick="usePrompt(2)">Current ability</div>
+          <div class="prompt-chip" onclick="usePrompt(3)">Learning style</div>
+        </div>
+
+        <div class="chat-input-wrap">
+          <textarea id="request-input" placeholder="e.g. My son is in Secondary 3, weak in A-Math, gets bored easily and needs a patient tutor who keeps things interactive..." oninput="parseRequest()"></textarea>
+        </div>
+
+        <div class="checklist">
+          <p class="checklist-title">Ask ME knows more with:</p>
+          <div class="check-item" id="chk-level"><div class="check-circle"></div>Child's level / grade</div>
+          <div class="check-item" id="chk-subject"><div class="check-circle"></div>Subject or skill</div>
+          <div class="check-item" id="chk-ability"><div class="check-circle"></div>Current ability / performance</div>
+          <div class="check-item" id="chk-style"><div class="check-circle"></div>Learning style or personality</div>
+          <div class="check-item" id="chk-pref"><div class="check-circle"></div>Tutor preference<span class="optional-tag">optional</span></div>
+        </div>
+
+        <div class="chat-footer">
+          <span class="footer-hint" id="checklist-hint">0 of 5 filled in</span>
+          <button class="btn-ask" onclick="goToMatches()">
+            Ask ME
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <div class="manual-filters">
+      <div class="manual-filters-head">
+        <h3>Or search manually</h3>
+        <span>Pick as many options as you like in each dropdown.</span>
+      </div>
+      <div class="filter-bar" id="filter-bar">
+        <div class="filter-dd">
+          <button class="dd-trigger" id="ddtrigger-level" onclick="toggleDropdown('level')">
+            Level <span class="dd-count"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dd-panel" id="ddpanel-level"></div>
+        </div>
+        <div class="filter-dd">
+          <button class="dd-trigger" id="ddtrigger-subject" onclick="toggleDropdown('subject')">
+            Subject <span class="dd-count"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dd-panel" id="ddpanel-subject"></div>
+        </div>
+        <div class="filter-dd">
+          <button class="dd-trigger" id="ddtrigger-schedule" onclick="toggleDropdown('schedule')">
+            Schedule <span class="dd-count"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dd-panel" id="ddpanel-schedule" style="width:340px;">
+            <div class="dd-group-label">Add a free-time window</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <select id="sched-day" class="mini-select"></select>
+              <span style="font-size:12px;color:var(--text-secondary);">from</span>
+              <select id="sched-start" class="mini-select"></select>
+              <span style="font-size:12px;color:var(--text-secondary);">to</span>
+              <select id="sched-end" class="mini-select"></select>
+              <button class="btn-outline" style="padding:6px 12px;font-size:12px;" onclick="addScheduleSlot()">+ Add</button>
+            </div>
+            <p id="sched-warning" style="display:none;font-size:11.5px;color:var(--error);margin:6px 0 0;">End time must be after start time.</p>
+            <div class="dd-group-label" style="margin-top:16px;">Your added times</div>
+            <div id="sched-slots-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+            <button class="btn-outline" style="margin-top:12px;font-size:12px;padding:6px 12px;width:100%;" onclick="useMySavedSchedule()">Use my saved free time</button>
+          </div>
+        </div>
+        <div class="filter-dd">
+          <button class="dd-trigger" id="ddtrigger-qualification" onclick="toggleDropdown('qualification')">
+            Qualification <span class="dd-count"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dd-panel" id="ddpanel-qualification"></div>
+        </div>
+        <div class="filter-dd">
+          <button class="dd-trigger" id="ddtrigger-preferences" onclick="toggleDropdown('preferences')">
+            Preferences <span class="dd-count"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dd-panel" id="ddpanel-preferences"></div>
+        </div>
+
+        <div class="spacer"></div>
+        <button class="btn-outline" onclick="clearManualFilters()">Clear</button>
+        <button class="btn-ask" onclick="applyManualFilters()">Search educators</button>
+      </div>
+    </div>
+
+    <div class="filter-row" id="filter-row"></div>
+
+    <div class="results-heading">
+      <h2>Educators for you</h2>
+      <span class="results-count" id="results-count"></span>
+    </div>
+    <div class="grid" id="results-grid"></div>
+    <div style="text-align:center;margin-top:28px;">
+      <button class="btn-outline" onclick="showMoreEducators()">More Educators</button>
+      <p id="more-educators-note" style="display:none;font-size:13px;color:var(--text-secondary);margin-top:14px;">You've seen all educators in this preview — the real version will keep loading more.</p>
+    </div>
+  </div>
+
+  <!-- ================= JOIN AS EDUCATOR (placeholder) ================= -->
+  <div id="view-teach" style="display:none;">
+    <section style="padding:64px 0;text-align:center;">
+      <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>For educators</div>
+      <h1 class="headline">Teach on your <span class="accent">own terms.</span></h1>
+      <p class="subhead" style="margin-left:auto;margin-right:auto;">Set your own rates, choose your own hours, and let ME AI bring you families who are actually looking for what you teach.</p>
+      <button class="btn-ask" style="margin:0 auto;" onclick="openSignin(); setSigninType('educator');">
+        Start your profile
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </section>
+  </div>
+
+  <!-- ================= PARENT DASHBOARD SCAFFOLD ================= -->
+  <div id="view-parent" style="display:none;">
+    <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <h1 id="parent-welcome-heading">Welcome back</h1>
+        <p>Manage your children's profiles, saved educators, and requests.</p>
+      </div>
+      <button class="btn-outline" onclick="signOutUser()">Sign out</button>
+    </div>
+    <div class="dash-layout">
+      <div class="dash-nav" id="dash-nav">
+        <button class="active" onclick="showDashPanel('children')">My children</button>
+        <button onclick="showDashPanel('schedule')">My schedule</button>
+        <button onclick="showDashPanel('saved')">Saved educators</button>
+        <button onclick="showDashPanel('requests')">My requests</button>
+        <button onclick="showDashPanel('settings')">Account settings</button>
+      </div>
+      <div class="dash-panel" id="dash-panel"></div>
+    </div>
+  </div>
+
+  <!-- ================= ABOUT ME ================= -->
+  <div id="view-about" style="display:none;">
+    <div class="about-hero">
+      <div class="eyebrow" style="justify-content:center;"><span class="dot"></span>Our story</div>
+      <h1>Learning starts with <span class="accent">ME.</span></h1>
+      <p>Mind Enrichment was built on a simple belief: every child learns differently, so the way we find them an educator should be different too. ME AI exists to understand a child first — then recommend, never replace, the human judgement of parents and educators.</p>
+    </div>
+
+    <div class="voice-grid">
+      <div class="voice-card">
+        <div class="icon-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg></div>
+        <h4>Empathetic</h4>
+        <p>We understand every child is unique.</p>
+      </div>
+      <div class="voice-card">
+        <div class="icon-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5c0 2-1 3-2 4l-1 1v2H10v-2l-1-1c-1-1-2-2-2-4a5 5 0 015-5z"/><path d="M9 21h6M10 18h4"/></svg></div>
+        <h4>Intelligent</h4>
+        <p>AI that thinks deeply, recommends clearly.</p>
+      </div>
+      <div class="voice-card">
+        <div class="icon-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></div>
+        <h4>Transparent</h4>
+        <p>We explain why, always.</p>
+      </div>
+      <div class="voice-card">
+        <div class="icon-circle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <h4>Human</h4>
+        <p>AI assists. Parents decide.</p>
+      </div>
+    </div>
+
+    <div class="how-section">
+      <h2>Finding the right educator has never been easier</h2>
+      <p class="how-sub">How ME works, from first message to first lesson.</p>
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="num-circle">1</div>
+          <h4>Tell ME About Your Child</h4>
+          <p>Share their level, goals, learning style and more — in your own words.</p>
+        </div>
+        <div class="how-step">
+          <div class="num-circle">2</div>
+          <h4>ME Analyses</h4>
+          <p>ME AI analyses thousands of educator data points to find genuine fits.</p>
+        </div>
+        <div class="how-step">
+          <div class="num-circle">3</div>
+          <h4>Get Smart Matches</h4>
+          <p>Receive personalised recommendations, with clear explanations for each.</p>
+        </div>
+        <div class="how-step">
+          <div class="num-circle">4</div>
+          <h4>Start the Journey</h4>
+          <p>Book lessons, track progress, and celebrate growth together.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-strip" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat"><b>5,000+</b><span>Verified Educators</span></div>
+      <div class="stat"><b>10,000+</b><span>Families Supported</span></div>
+      <div class="stat"><b>98%</b><span>Match Accuracy</span></div>
+      <div class="stat"><b>4.9★</b><span>Parent Satisfaction</span></div>
+    </div>
+
+    <div class="about-cta">
+      <h2>Ready to find the right educator?</h2>
+      <p>Tell ME about your child and get matched in minutes.</p>
+      <button class="btn-ask" style="margin:0 auto;" onclick="showView('market')">Ask ME
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= EDUCATOR DASHBOARD SCAFFOLD ================= -->
+  <div id="view-educator" style="display:none;">
+    <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between;">
+      <div>
+        <h1 id="educator-welcome-heading">Welcome back</h1>
+        <p>Manage your profile, qualifications, requests, and reviews.</p>
+      </div>
+      <button class="btn-outline" onclick="signOutUser()">Sign out</button>
+    </div>
+    <div class="dash-layout">
+      <div class="dash-nav" id="edu-dash-nav">
+        <button class="active" onclick="showEduDashPanel('profile')">My profile</button>
+        <button onclick="showEduDashPanel('schedule')">My schedule</button>
+        <button onclick="showEduDashPanel('quals')">Qualifications & certs</button>
+        <button onclick="showEduDashPanel('requests')">Requests from parents</button>
+        <button onclick="showEduDashPanel('reviews')">Reviews</button>
+        <button onclick="showEduDashPanel('settings')">Account settings</button>
+      </div>
+      <div class="dash-panel" id="edu-dash-panel"></div>
+    </div>
+  </div>
+
+  <!-- ================= MATCH RESULTS PAGE ================= -->
+  <div id="view-matches" style="display:none;">
+    <div class="matches-header">
+      <button class="btn-outline" onclick="showView('market')">&larr; Refine search</button>
+      <h1>ME's picks for your child</h1>
+      <p id="matches-subline">Based on what you told ME, ranked by fit.</p>
+      <div class="parsed-chips" id="matches-chips" style="padding:0;margin-top:14px;"></div>
+    </div>
+    <div class="grid" id="matches-grid" style="margin-top:28px;"></div>
+  </div>
+
+</div>
+
+<!-- ================= PROFILE MODAL ================= -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/database.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
