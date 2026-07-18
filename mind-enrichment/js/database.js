@@ -262,25 +262,3 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 const HOUR_MARKS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
 
 const GRID_HOURS = HOUR_MARKS.slice(0, -1); // 7am..9pm start-hours, for the weekly grid
-
-const MOCK_MY_QUALS = [
-  {title:"B.Sc (Hons) Mathematics", institution:"National University of Singapore", year:"2013", status:"approved"},
-  {title:"Postgraduate Diploma in Education", institution:"National Institute of Education", year:"2014", status:"approved"},
-  {title:"ABRSM Grade 8 Music Theory", institution:"ABRSM", year:"2022", status:"under_review"}
-];
-
-const MOCK_EDU_REQUESTS = [
-  {text:"Sec 3 A-Math, weak in algebra, prefers a patient tutor", status:"new"},
-  {text:"Sec 4 student aiming for A1, needs exam-focused revision", status:"responded"}
-];
-
-const MOCK_CHILDREN = [
-  {name:"Ethan Lim", level:"Secondary 3", initials:"EL"},
-  {name:"Chloe Lim", level:"Primary 5", initials:"CL"}
-];
-
-const MOCK_REQUESTS = [
-  {text:"Sec 3 A-Math tutor, weak in algebra, prefers patient tutor", status:"matched"},
-  {text:"Piano teacher for Chloe, complete beginner", status:"searching"}
-];
-

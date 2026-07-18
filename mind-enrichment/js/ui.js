@@ -124,12 +124,24 @@ function renderScheduleGrid(containerId, opts){
 /* ---- Parent schedule state ---- */
 
 let parentFreeHours = new Set();
-
-let parentBookedLessons = [{day:"Tuesday", start:17, end:19, label:"Math with Serena Tan"}];
-
+let parentBookedLessons = []; // no real bookings system yet — starts empty, not fake data
 let parentSavedSchedule = [];
+let parentScheduleLoaded = false;
 
-function renderParentSchedulePanel(){
+async function renderParentSchedulePanel(){
+  if(!parentScheduleLoaded){
+    parentScheduleLoaded = true;
+    if(window.storage){
+      try{
+        const r = await window.storage.get('parent-schedule:' + currentUser.id, false);
+        if(r && r.value){
+          parentSavedSchedule = JSON.parse(r.value);
+          parentFreeHours = expandSlotsToHours(parentSavedSchedule);
+        }
+      }catch(e){ /* nothing saved yet */ }
+    }
+  }
+
   const el = document.getElementById('dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark your child\'s free time. Sessions already booked show automatically.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span></div>'+
@@ -160,7 +172,7 @@ function saveParentSchedule(){
   msg.style.display = 'inline';
   setTimeout(() => { msg.style.display = 'none'; }, 2500);
   if(window.storage){
-    try{ window.storage.set('parent-schedule:mrs-lim', JSON.stringify(parentSavedSchedule), false); }catch(e){}
+    try{ window.storage.set('parent-schedule:' + currentUser.id, JSON.stringify(parentSavedSchedule), false); }catch(e){}
   }
 }
 
@@ -177,23 +189,27 @@ function useMySavedSchedule(){
 /* ---- Educator schedule state ---- */
 
 let currentEduAvailableHours = new Set();
-
 let eduScheduleInited = false;
+let eduBookedSlots = []; // no real bookings system yet — starts empty, not fake data
 
-let eduBookedSlots = [{day:"Tuesday", start:17, end:19, label:"Ethan Lim — A-Math"}];
-
-function renderEducatorSchedulePanel(){
+async function renderEducatorSchedulePanel(){
   if(!eduScheduleInited){
-    currentEduAvailableHours = expandSlotsToHours(EDUCATORS[0].availability);
     eduScheduleInited = true;
+    if(window.storage){
+      try{
+        const r = await window.storage.get('educator-schedule:' + currentUser.id, false);
+        if(r && r.value) currentEduAvailableHours = expandSlotsToHours(JSON.parse(r.value));
+      }catch(e){ /* nothing saved yet */ }
+    }
   }
+
   const el = document.getElementById('edu-dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark yourself available. Booked lessons show automatically and can\'t be edited here.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span></div>'+
     '<div id="edu-sched-grid"></div>'+
     '<div style="display:flex;gap:10px;align-items:center;margin-top:16px;">'+
       '<button class="btn-ask" onclick="saveEducatorSchedule()">Save schedule</button>'+
-      '<span id="edu-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved — this updates your public availability ✓</span>'+
+      '<span id="edu-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved ✓</span>'+
     '</div>';
   renderScheduleGrid('edu-sched-grid', {
     getCellState: (d,h) => {
@@ -213,25 +229,12 @@ function toggleEducatorHour(day, hour){
 
 function saveEducatorSchedule(){
   const slots = compressHoursToSlots(currentEduAvailableHours);
-  EDUCATORS[0].availability = slots; // live update — search filters reflect this immediately
   const msg = document.getElementById('edu-sched-saved-msg');
   msg.style.display = 'inline';
   setTimeout(() => { msg.style.display = 'none'; }, 2500);
   if(window.storage){
-    try{ window.storage.set('educator-schedule:serena-tan', JSON.stringify(slots), false); }catch(e){}
+    try{ window.storage.set('educator-schedule:' + currentUser.id, JSON.stringify(slots), false); }catch(e){}
   }
-}
-
-async function loadPersistedSchedules(){
-  if(!window.storage) return;
-  try{
-    const r = await window.storage.get('parent-schedule:mrs-lim', false);
-    if(r && r.value) parentSavedSchedule = JSON.parse(r.value);
-  }catch(e){ /* not saved yet */ }
-  try{
-    const r2 = await window.storage.get('educator-schedule:serena-tan', false);
-    if(r2 && r2.value) EDUCATORS[0].availability = JSON.parse(r2.value);
-  }catch(e){ /* not saved yet */ }
 }
 
 function hourLabel(h){
@@ -592,35 +595,211 @@ async function loadDashboardGreeting(role){
 
 /* ---------------- EDUCATOR DASHBOARD SCAFFOLD ---------------- */
 
-function showEduDashPanel(panel){
+let myEducatorProfile = null; // cached after first fetch, to avoid refetching on every tab click
+
+async function fetchMyEducatorProfile(forceRefresh){
+  if(myEducatorProfile && !forceRefresh) return myEducatorProfile;
+  const { data } = await sb.from('educators')
+    .select('full_name, headline, bio, years_experience, verification_status, hourly_rate_min, hourly_rate_max, location_area, languages_spoken, teaching_mode')
+    .eq('user_id', currentUser.id).single();
+  myEducatorProfile = data;
+  return data;
+}
+
+async function renderQualsPanel(el){
+  const { data: quals } = await sb.from('qualifications')
+    .select('id, title, institution, year_obtained, qualification_type, verification_status')
+    .eq('educator_id', currentUser.id)
+    .order('created_at', { ascending: false });
+
+  el.innerHTML = '<h3>Qualifications & certificates</h3><p class="panel-sub">Each one is reviewed independently by our verification team.</p>'+
+    '<div id="quals-list">'+
+    (!quals || quals.length===0
+      ? '<div class="empty-state"><h3>No qualifications added yet</h3><p>Add your degrees, diplomas, or certificates so parents can see them.</p></div>'
+      : quals.map(q=>{
+          const badge = q.verification_status==='approved' ? '<span class="verified-badge">Verified</span>' : '<span class="pending-badge">Pending review</span>';
+          return '<div class="qual-item" style="margin-bottom:14px;"><div class="qual-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg></div><div class="qual-text"><strong>'+q.title+' '+badge+'</strong><span class="qual-meta">'+(q.institution||'')+' &middot; '+(q.qualification_type||'')+' &middot; '+(q.year_obtained||'')+'</span></div></div>';
+        }).join('')
+    )+
+    '</div>'+
+    '<button class="btn-outline" id="btn-show-add-qual" style="margin-top:8px;" onclick="showAddQualForm()">+ Add a qualification</button>'+
+    '<div id="add-qual-form" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline);">'+
+      '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Title</label>'+
+      '<input type="text" id="qual-title-input" placeholder="e.g. B.Sc (Hons) Mathematics" class="signin-input" />'+
+      '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Type</label>'+
+      '<select id="qual-type-input" class="signin-input">'+
+        '<option value="degree">Degree</option><option value="diploma">Diploma</option>'+
+        '<option value="certification">Certification</option><option value="license">License</option>'+
+        '<option value="award">Award</option><option value="other">Other</option>'+
+      '</select>'+
+      '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Institution</label>'+
+      '<input type="text" id="qual-institution-input" placeholder="e.g. National University of Singapore" class="signin-input" />'+
+      '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Year obtained</label>'+
+      '<input type="number" id="qual-year-input" min="1950" max="2030" class="signin-input" />'+
+      '<p id="qual-form-error" style="display:none;font-size:12.5px;color:var(--error);font-weight:600;margin:0 0 12px;"></p>'+
+      '<div style="display:flex;gap:10px;">'+
+        '<button class="btn-ask" onclick="submitNewQual()">Save qualification</button>'+
+        '<button class="btn-outline" onclick="hideAddQualForm()">Cancel</button>'+
+      '</div>'+
+    '</div>';
+}
+
+function showAddQualForm(){
+  document.getElementById('add-qual-form').style.display = 'block';
+  document.getElementById('btn-show-add-qual').style.display = 'none';
+}
+function hideAddQualForm(){
+  document.getElementById('add-qual-form').style.display = 'none';
+  document.getElementById('btn-show-add-qual').style.display = 'inline-block';
+}
+
+async function submitNewQual(){
+  const title = document.getElementById('qual-title-input').value.trim();
+  const type = document.getElementById('qual-type-input').value;
+  const institution = document.getElementById('qual-institution-input').value.trim();
+  const year = document.getElementById('qual-year-input').value;
+  const errorEl = document.getElementById('qual-form-error');
+
+  if(!title){
+    errorEl.textContent = 'Please enter a title.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  const { error } = await sb.from('qualifications').insert({
+    educator_id: currentUser.id,
+    title,
+    qualification_type: type,
+    institution: institution || null,
+    year_obtained: year ? parseInt(year, 10) : null
+  });
+
+  if(error){
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  showEduDashPanel('quals'); // reload the list, now including the new one
+}
+
+function showEditProfileForm(){
+  document.getElementById('edit-profile-form').style.display = 'block';
+  document.getElementById('btn-show-edit-profile').style.display = 'none';
+}
+function hideEditProfileForm(){
+  document.getElementById('edit-profile-form').style.display = 'none';
+  document.getElementById('btn-show-edit-profile').style.display = 'inline-block';
+}
+
+async function submitProfileEdit(){
+  const errorEl = document.getElementById('edit-profile-error');
+  const rateMin = document.getElementById('edit-rate-min-input').value;
+  const rateMax = document.getElementById('edit-rate-max-input').value;
+
+  if(rateMin && rateMax && parseFloat(rateMin) > parseFloat(rateMax)){
+    errorEl.textContent = 'Minimum rate must be less than or equal to maximum rate.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  const languages = document.getElementById('edit-languages-input').value
+    .split(',').map(s => s.trim()).filter(Boolean);
+
+  const { error } = await sb.from('educators').update({
+    headline: document.getElementById('edit-headline-input').value.trim(),
+    bio: document.getElementById('edit-bio-input').value.trim(),
+    hourly_rate_min: rateMin ? parseFloat(rateMin) : null,
+    hourly_rate_max: rateMax ? parseFloat(rateMax) : null,
+    location_area: document.getElementById('edit-location-input').value.trim() || null,
+    languages_spoken: languages.length ? languages : null,
+    teaching_mode: document.getElementById('edit-mode-input').value
+  }).eq('user_id', currentUser.id);
+
+  if(error){
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  await showEduDashPanel('profile', true); // reload with fresh data
+}
+
+async function showEduDashPanel(panel, forceRefresh){
   document.querySelectorAll('#edu-dash-nav button').forEach((b,i)=>{
     b.classList.toggle('active', ['profile','schedule','quals','requests','reviews','settings'][i]===panel);
   });
   const el = document.getElementById('edu-dash-panel');
+
   if(panel==='profile'){
+    el.innerHTML = '<p class="panel-sub">Loading your profile...</p>';
+    const p = await fetchMyEducatorProfile(forceRefresh);
+    if(!p){ el.innerHTML = '<h3>My profile</h3><p class="panel-sub">Couldn\'t load your profile — try refreshing the page.</p>'; return; }
+    const badge = p.verification_status === 'approved'
+      ? '<span class="verified-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>Verified educator</span>'
+      : '<span class="pending-badge">'+(p.verification_status||'pending').replace('_',' ')+'</span>';
     el.innerHTML = '<h3>My profile</h3><p class="panel-sub">This is what parents see on the marketplace.</p>'+
-      '<div class="verified-badge" style="margin-bottom:16px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>Verified educator</div>'+
+      '<div style="margin-bottom:16px;">'+badge+'</div>'+
       '<div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">'+
-        '<div class="avatar" style="background:var(--blue);width:60px;height:60px;font-size:19px;">ST</div>'+
-        '<div><strong style="display:block;font-size:16px;">Serena Tan</strong><span style="font-size:13px;color:var(--text-secondary);">Ex-MOE Math teacher, 8 yrs experience</span></div>'+
+        '<div class="avatar" style="background:var(--blue);width:60px;height:60px;font-size:19px;">'+initials(p.full_name||'?')+'</div>'+
+        '<div><strong style="display:block;font-size:16px;">'+(p.full_name||'')+'</strong><span style="font-size:13px;color:var(--text-secondary);">'+(p.headline||'No headline set yet')+'</span></div>'+
       '</div>'+
-      '<button class="btn-outline">Edit profile details</button>';
+      '<p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:8px;">'+(p.bio||'No bio yet.')+' &middot; '+(p.years_experience||0)+' yrs experience</p>'+
+      '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">'+
+        (p.hourly_rate_min ? '$'+p.hourly_rate_min+'-'+p.hourly_rate_max+'/hr' : 'Rate not set')+' &middot; '+
+        (p.location_area || 'Location not set')+' &middot; '+
+        (p.languages_spoken && p.languages_spoken.length ? p.languages_spoken.join(', ') : 'Languages not set')+
+      '</p>'+
+      '<button class="btn-outline" id="btn-show-edit-profile" onclick="showEditProfileForm()">Edit profile details</button>'+
+      '<div id="edit-profile-form" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline);">'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Headline</label>'+
+        '<input type="text" id="edit-headline-input" value="'+(p.headline||'')+'" class="signin-input" />'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Bio</label>'+
+        '<textarea id="edit-bio-input" rows="3" class="signin-input" style="resize:none;">'+(p.bio||'')+'</textarea>'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Hourly rate (min - max, SGD)</label>'+
+        '<div style="display:flex;gap:8px;margin-bottom:14px;">'+
+          '<input type="number" id="edit-rate-min-input" min="0" placeholder="Min" value="'+(p.hourly_rate_min||'')+'" class="signin-input" style="margin-bottom:0;" />'+
+          '<input type="number" id="edit-rate-max-input" min="0" placeholder="Max" value="'+(p.hourly_rate_max||'')+'" class="signin-input" style="margin-bottom:0;" />'+
+        '</div>'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Location / area</label>'+
+        '<input type="text" id="edit-location-input" placeholder="e.g. Bukit Timah, or Islandwide" value="'+(p.location_area||'')+'" class="signin-input" />'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Languages spoken (comma-separated)</label>'+
+        '<input type="text" id="edit-languages-input" placeholder="e.g. English, Mandarin" value="'+(p.languages_spoken?p.languages_spoken.join(', '):'')+'" class="signin-input" />'+
+        '<label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:6px;">Teaching mode</label>'+
+        '<select id="edit-mode-input" class="signin-input">'+
+          '<option value="online"'+(p.teaching_mode==='online'?' selected':'')+'>Online</option>'+
+          '<option value="in_person"'+(p.teaching_mode==='in_person'?' selected':'')+'>In-person</option>'+
+          '<option value="hybrid"'+(p.teaching_mode==='hybrid'?' selected':'')+'>Hybrid</option>'+
+        '</select>'+
+        '<p id="edit-profile-error" style="display:none;font-size:12.5px;color:var(--error);font-weight:600;margin:0 0 12px;"></p>'+
+        '<div style="display:flex;gap:10px;">'+
+          '<button class="btn-ask" onclick="submitProfileEdit()">Save changes</button>'+
+          '<button class="btn-outline" onclick="hideEditProfileForm()">Cancel</button>'+
+        '</div>'+
+      '</div>';
+
   } else if(panel==='schedule'){
     renderEducatorSchedulePanel();
+
   } else if(panel==='quals'){
-    el.innerHTML = '<h3>Qualifications & certificates</h3><p class="panel-sub">Each one is reviewed independently by our verification team.</p>'+
-      MOCK_MY_QUALS.map(q=>{
-        const badge = q.status==='approved' ? '<span class="verified-badge">Verified</span>' : '<span class="pending-badge">Pending review</span>';
-        return '<div class="qual-item" style="margin-bottom:14px;"><div class="qual-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg></div><div class="qual-text"><strong>'+q.title+' '+badge+'</strong><span class="qual-meta">'+q.institution+' &middot; '+q.year+'</span></div></div>';
-      }).join('')+
-      '<button class="btn-outline" style="margin-top:8px;">+ Upload a new certificate</button>';
+    el.innerHTML = '<p class="panel-sub">Loading...</p>';
+    await renderQualsPanel(el);
+
   } else if(panel==='requests'){
     el.innerHTML = '<h3>Requests from parents</h3><p class="panel-sub">Parents whose ME AI match included you.</p>'+
-      MOCK_EDU_REQUESTS.map(r=>'<div class="request-row"><span class="req-text">'+r.text+'</span><span class="status-pill '+(r.status==='new'?'searching':'matched')+'">'+(r.status==='new'?'New':'Responded')+'</span></div>').join('');
+      '<div class="empty-state"><h3>No requests yet</h3><p>When a parent\'s search matches your profile, it\'ll show up here.</p></div>';
+
   } else if(panel==='reviews'){
+    el.innerHTML = '<p class="panel-sub">Loading...</p>';
+    const { data: reviews } = await sb.from('reviews').select('rating, comment').eq('educator_id', currentUser.id).eq('status', 'published');
     el.innerHTML = '<h3>Reviews</h3><p class="panel-sub">Feedback from parents after completed lessons.</p>'+
-      '<div class="review-item"><div class="review-top"><span class="review-author">Mrs Ong</span><span class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></div><p class="review-text">My son went from a C6 to an A2 in one year for A-Math. Ms Tan is patient and explains concepts very clearly.</p></div>'+
-      '<div class="review-item"><div class="review-top"><span class="review-author">Mr Farid</span><span class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span></div><p class="review-text">Very structured lessons, always on time, and gives useful practice questions targeted at weak areas.</p></div>';
+      (!reviews || reviews.length===0
+        ? '<div class="empty-state"><h3>No reviews yet</h3><p>Reviews from parents will appear here after completed lessons.</p></div>'
+        : reviews.map(r=>'<div class="review-item"><div class="review-top"><span class="review-stars">'+'&#9733;'.repeat(r.rating)+'</span></div><p class="review-text">'+r.comment+'</p></div>').join('')
+      );
+
   } else if(panel==='settings'){
     el.innerHTML = '<h3>Account settings</h3><p class="panel-sub">Manage your contact details, payout info, and notifications.</p>'+
       '<div class="empty-state"><h3>Coming soon</h3><p>This is a placeholder — account editing will go here.</p></div>';
@@ -629,23 +808,33 @@ function showEduDashPanel(panel){
 
 /* ---------------- PARENT DASHBOARD SCAFFOLD ---------------- */
 
-function showDashPanel(panel){
+async function showDashPanel(panel){
   document.querySelectorAll('#dash-nav button').forEach((b,i)=>{
     b.classList.toggle('active', ['children','schedule','saved','requests','settings'][i]===panel);
   });
   const el = document.getElementById('dash-panel');
+
   if(panel==='children'){
+    el.innerHTML = '<p class="panel-sub">Loading...</p>';
+    const { data: children } = await sb.from('students').select('full_name, education_levels(name)').eq('parent_id', currentUser.id);
     el.innerHTML = '<h3>My children</h3><p class="panel-sub">Add a child\'s profile so ME AI and requests can be tailored to their level.</p>'+
-      MOCK_CHILDREN.map(c=>'<div class="child-card"><div class="child-avatar">'+c.initials+'</div><div class="child-info"><strong>'+c.name+'</strong><span>'+c.level+'</span></div></div>').join('')+
+      (!children || children.length===0
+        ? '<div class="empty-state"><h3>No children added yet</h3><p>Add your child\'s details to get better educator matches.</p></div>'
+        : children.map(c=>'<div class="child-card"><div class="child-avatar">'+initials(c.full_name)+'</div><div class="child-info"><strong>'+c.full_name+'</strong><span>'+(c.education_levels?.name||'Level not set')+'</span></div></div>').join('')
+      )+
       '<button class="btn-outline" style="margin-top:8px;">+ Add a child</button>';
+
   } else if(panel==='schedule'){
     renderParentSchedulePanel();
+
   } else if(panel==='saved'){
     el.innerHTML = '<h3>Saved educators</h3><p class="panel-sub">Educators you\'ve bookmarked while browsing.</p>'+
       '<div class="empty-state"><h3>No saved educators yet</h3><p>Browse the marketplace and tap the heart on a profile to save it here.</p><button class="btn-outline" onclick="showView(\'market\')">Find an educator</button></div>';
+
   } else if(panel==='requests'){
     el.innerHTML = '<h3>My requests</h3><p class="panel-sub">Requests you\'ve made through ME AI.</p>'+
-      MOCK_REQUESTS.map(r=>'<div class="request-row"><span class="req-text">'+r.text+'</span><span class="status-pill '+r.status+'">'+(r.status==='matched'?'Matched':'Searching')+'</span></div>').join('');
+      '<div class="empty-state"><h3>No requests yet</h3><p>Use "Ask ME" on the homepage to get matched with educators.</p></div>';
+
   } else if(panel==='settings'){
     el.innerHTML = '<h3>Account settings</h3><p class="panel-sub">Manage your contact details and notification preferences.</p>'+
       '<div class="empty-state"><h3>Coming soon</h3><p>This is a placeholder — profile editing will go here.</p></div>';

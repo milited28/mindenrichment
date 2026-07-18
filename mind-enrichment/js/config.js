@@ -5,8 +5,8 @@
 // anon/public one, which is safe to expose in browser code.
 // ============================================================================
 
-const SUPABASE_URL = "https://hignbhrtyknjdrbwdvnl.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_-3hnHh5lGuQirAfLMBq-dA_FPbfJ91E";
+const SUPABASE_URL = "https://your-project-ref.supabase.co";
+const SUPABASE_ANON_KEY = "your-anon-public-key";
 
 // `supabase` here refers to the global object created by the Supabase CDN
 // script tag loaded in index.html — this creates our actual client instance.

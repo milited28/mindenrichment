@@ -10,8 +10,6 @@ renderResults(EDUCATORS);
 
 initFilterPickers();
 
-loadPersistedSchedules();
-
 loadPersistedTheme();
 
 restoreSession();
