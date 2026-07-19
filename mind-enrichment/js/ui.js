@@ -123,7 +123,7 @@ function renderScheduleGrid(containerId, opts){
           const endFrac = Math.max(0, Math.min(1, b.end - h));
           const startPct = (startFrac * 100).toFixed(1);
           const endPct = (endFrac * 100).toFixed(1);
-          styleAttr = ' style="background:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%);"';
+          styleAttr = ' style="background-color:var(--bg); background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%), linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);"';
         }
       }
 

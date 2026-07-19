@@ -164,7 +164,10 @@
   .sched-grid{border-collapse:collapse;width:100%;font-size:11px;}
   .sched-grid th{font-size:10.5px;font-weight:700;color:var(--text-secondary);padding:4px;text-align:center;}
   .sched-hour-label{font-size:10px;color:var(--text-secondary);padding:2px 8px;white-space:nowrap;text-align:right;}
-  .sched-cell{width:34px;height:20px;border:1px solid var(--hairline);cursor:pointer;background:var(--bg);}
+  .sched-cell{
+    width:34px;height:34px;border:1px solid var(--hairline);cursor:pointer;background-color:var(--bg);
+    background-image:linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);
+  }
   .sched-cell:hover{background:rgba(37,99,235,0.15);}
   .sched-cell.marked{background:var(--green);border-color:var(--green);}
   .sched-cell.available{background:var(--blue);border-color:var(--blue);}
