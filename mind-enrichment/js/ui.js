@@ -112,8 +112,22 @@ function renderScheduleGrid(containerId, opts){
     DAYS.forEach(d => {
       const state = opts.getCellState(d, h);
       const clickable = state !== 'booked';
-      const title = state === 'booked' ? (opts.bookedLabel(d,h) || 'Booked') : '';
-      html += '<td class="sched-cell '+state+'" '+(clickable ? 'onclick="'+opts.onClickName+'(\''+d+'\','+h+')"' : '')+' title="'+title+'"></td>';
+      let styleAttr = '';
+      let title = '';
+
+      if(state === 'booked' && opts.getBookedEntry){
+        const b = opts.getBookedEntry(d, h);
+        if(b){
+          title = b.label + ' (' + formatTimeDecimal(b.start) + '–' + formatTimeDecimal(b.end) + ')';
+          const startFrac = Math.max(0, Math.min(1, b.start - h));
+          const endFrac = Math.max(0, Math.min(1, b.end - h));
+          const startPct = (startFrac * 100).toFixed(1);
+          const endPct = (endFrac * 100).toFixed(1);
+          styleAttr = ' style="background:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%);"';
+        }
+      }
+
+      html += '<td class="sched-cell '+state+'"'+styleAttr+' '+(clickable ? 'onclick="'+opts.onClickName+'(\''+d+'\','+h+')"' : '')+' title="'+title+'"></td>';
     });
     html += '</tr>';
   });
@@ -161,7 +175,7 @@ async function renderParentSchedulePanel(){
       if(parentBookedLessons.some(b => b.day===d && h<b.end && (h+1)>b.start)) return 'booked';
       return parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty';
     },
-    bookedLabel: (d,h) => { const b = parentBookedLessons.find(b=>b.day===d && h<b.end && (h+1)>b.start); return b ? b.label : ''; },
+    getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+1)>b.start),
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
@@ -201,9 +215,9 @@ function bookingFormHTML(role){
     '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'+
       '<select id="'+role+'-book-day" class="mini-select"></select>'+
       '<span style="font-size:12px;color:var(--text-secondary);">from</span>'+
-      '<input type="time" id="'+role+'-book-start" class="mini-select" />'+
+      '<select id="'+role+'-book-start" class="mini-select"></select>'+
       '<span style="font-size:12px;color:var(--text-secondary);">to</span>'+
-      '<input type="time" id="'+role+'-book-end" class="mini-select" />'+
+      '<select id="'+role+'-book-end" class="mini-select"></select>'+
       '<input type="text" id="'+role+'-book-label" placeholder="e.g. Math with Ethan" class="mini-select" style="flex:1;min-width:140px;" />'+
       '<button class="btn-outline" style="padding:6px 12px;font-size:12px;" onclick="addBookedSession(\''+role+'\')">+ Add</button>'+
     '</div>'+
@@ -218,15 +232,34 @@ function bookingListHTML(list, role){
   '</div>';
 }
 
-function renderBookingPickers(role){
-  document.getElementById(role+'-book-day').innerHTML = DAYS.map(d => '<option>'+d+'</option>').join('');
+const TIME_OPTIONS = (() => {
+  const opts = [];
+  for(let h = 7; h <= 22; h++){
+    for(let m = 0; m < 60; m += 5){
+      if(h === 22 && m > 0) break; // stop at 10:00pm
+      const dec = h + m/60;
+      opts.push({ value: dec, label: formatTimeDecimalFull(dec) });
+    }
+  }
+  return opts;
+})();
+
+function formatTimeDecimalFull(dec){
+  // Always shows minutes, e.g. "7:00am", "7:05am" — used for dropdown option labels.
+  const h = Math.floor(dec);
+  const m = Math.round((dec - h) * 60);
+  const period = h < 12 ? 'am' : 'pm';
+  let displayHour = h % 12;
+  if(displayHour === 0) displayHour = 12;
+  return displayHour + ':' + String(m).padStart(2,'0') + period;
 }
 
-function timeStringToDecimal(value){
-  // value is "HH:MM" from a native <input type="time">
-  if(!value) return NaN;
-  const [h, m] = value.split(':').map(Number);
-  return h + (m || 0) / 60;
+function renderBookingPickers(role){
+  document.getElementById(role+'-book-day').innerHTML = DAYS.map(d => '<option>'+d+'</option>').join('');
+  const optionsHTML = TIME_OPTIONS.map(o => '<option value="'+o.value+'">'+o.label+'</option>').join('');
+  document.getElementById(role+'-book-start').innerHTML = optionsHTML;
+  document.getElementById(role+'-book-end').innerHTML = optionsHTML;
+  document.getElementById(role+'-book-end').selectedIndex = TIME_OPTIONS.length - 1;
 }
 
 function formatTimeDecimal(dec){
@@ -240,8 +273,8 @@ function formatTimeDecimal(dec){
 
 async function addBookedSession(role){
   const day = document.getElementById(role+'-book-day').value;
-  const start = timeStringToDecimal(document.getElementById(role+'-book-start').value);
-  const end = timeStringToDecimal(document.getElementById(role+'-book-end').value);
+  const start = parseFloat(document.getElementById(role+'-book-start').value);
+  const end = parseFloat(document.getElementById(role+'-book-end').value);
   const label = document.getElementById(role+'-book-label').value.trim();
   const warning = document.getElementById(role+'-book-warning');
 
@@ -315,7 +348,7 @@ async function renderEducatorSchedulePanel(){
       if(eduBookedSlots.some(b => b.day===d && h<b.end && (h+1)>b.start)) return 'booked';
       return currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty';
     },
-    bookedLabel: (d,h) => { const b = eduBookedSlots.find(b=>b.day===d && h<b.end && (h+1)>b.start); return b ? b.label : ''; },
+    getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+1)>b.start),
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');
