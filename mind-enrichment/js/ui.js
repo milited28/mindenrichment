@@ -78,7 +78,7 @@ function hourKey(day, hour){ return day + '-' + hour; }
 
 function expandSlotsToHours(slots){
   const set = new Set();
-  slots.forEach(s => { for(let h = s.start; h < s.end; h++) set.add(hourKey(s.day, h)); });
+  slots.forEach(s => { for(let h = s.start; h < s.end - 1e-9; h += SLOT_DURATION) set.add(hourKey(s.day, h)); });
   return set;
 }
 
@@ -87,7 +87,7 @@ function compressHoursToSlots(hourSet){
   DAYS.forEach(d => byDay[d] = []);
   hourSet.forEach(k => {
     const idx = k.lastIndexOf('-');
-    byDay[k.slice(0, idx)].push(parseInt(k.slice(idx + 1), 10));
+    byDay[k.slice(0, idx)].push(parseFloat(k.slice(idx + 1)));
   });
   const slots = [];
   DAYS.forEach(day => {
@@ -95,10 +95,10 @@ function compressHoursToSlots(hourSet){
     let start = null, prev = null;
     hours.forEach(h => {
       if(start === null){ start = h; prev = h; }
-      else if(h === prev + 1){ prev = h; }
-      else { slots.push({day, start, end: prev+1}); start = h; prev = h; }
+      else if(Math.abs(h - (prev + SLOT_DURATION)) < 1e-9){ prev = h; }
+      else { slots.push({day, start, end: prev+SLOT_DURATION}); start = h; prev = h; }
     });
-    if(start !== null) slots.push({day, start, end: prev+1});
+    if(start !== null) slots.push({day, start, end: prev+SLOT_DURATION});
   });
   return slots;
 }
@@ -107,8 +107,9 @@ function renderScheduleGrid(containerId, opts){
   let html = '<div class="sched-grid-wrap"><table class="sched-grid"><thead><tr><th></th>';
   DAYS.forEach(d => html += '<th>'+d.slice(0,3)+'</th>');
   html += '</tr></thead><tbody>';
-  GRID_HOURS.forEach(h => {
-    html += '<tr><td class="sched-hour-label">'+hourLabel(h)+'</td>';
+  GRID_SLOTS.forEach(h => {
+    const isWholeHour = Math.abs(h % 1) < 1e-9;
+    html += '<tr><td class="sched-hour-label'+(isWholeHour ? '' : ' sched-half-label')+'">'+(isWholeHour ? hourLabel(h) : '')+'</td>';
     DAYS.forEach(d => {
       const state = opts.getCellState(d, h);
       const clickable = state !== 'booked';
@@ -119,8 +120,8 @@ function renderScheduleGrid(containerId, opts){
         const b = opts.getBookedEntry(d, h);
         if(b){
           title = b.label + ' (' + formatTimeDecimal(b.start) + '–' + formatTimeDecimal(b.end) + ')';
-          const startFrac = Math.max(0, Math.min(1, b.start - h));
-          const endFrac = Math.max(0, Math.min(1, b.end - h));
+          const startFrac = Math.max(0, Math.min(1, (b.start - h) / SLOT_DURATION));
+          const endFrac = Math.max(0, Math.min(1, (b.end - h) / SLOT_DURATION));
           const startPct = (startFrac * 100).toFixed(1);
           const endPct = (endFrac * 100).toFixed(1);
           styleAttr = ' style="background-color:var(--bg); background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%), linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);"';
@@ -172,10 +173,10 @@ async function renderParentSchedulePanel(){
     bookingListHTML(parentBookedLessons, 'parent');
   renderScheduleGrid('parent-sched-grid', {
     getCellState: (d,h) => {
-      if(parentBookedLessons.some(b => b.day===d && h<b.end && (h+1)>b.start)) return 'booked';
+      if(parentBookedLessons.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
       return parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty';
     },
-    getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+1)>b.start),
+    getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
@@ -345,10 +346,10 @@ async function renderEducatorSchedulePanel(){
     bookingListHTML(eduBookedSlots, 'educator');
   renderScheduleGrid('edu-sched-grid', {
     getCellState: (d,h) => {
-      if(eduBookedSlots.some(b => b.day===d && h<b.end && (h+1)>b.start)) return 'booked';
+      if(eduBookedSlots.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
       return currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty';
     },
-    getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+1)>b.start),
+    getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');

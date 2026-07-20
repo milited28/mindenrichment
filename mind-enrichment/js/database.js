@@ -262,3 +262,10 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 const HOUR_MARKS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
 
 const GRID_HOURS = HOUR_MARKS.slice(0, -1); // 7am..9pm start-hours, for the weekly grid
+
+const SLOT_DURATION = 0.5; // grid marking granularity, in hours (30 minutes)
+const GRID_SLOTS = (() => {
+  const slots = [];
+  for(let h = 7; h < 22; h += SLOT_DURATION) slots.push(h);
+  return slots;
+})();
