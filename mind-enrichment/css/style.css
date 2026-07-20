@@ -161,17 +161,17 @@
   .fchip:hover{border-color:var(--blue);}
   .fchip.active{background:var(--deep-blue);border-color:var(--deep-blue);color:#fff;}
   .sched-grid-wrap{overflow-x:auto;}
-  .sched-grid{border-collapse:collapse;width:100%;font-size:11px;}
-  .sched-grid th{font-size:10.5px;font-weight:700;color:var(--text-secondary);padding:4px;text-align:center;}
-  .sched-hour-label{font-size:10px;color:var(--text-secondary);padding:2px 8px;white-space:nowrap;text-align:right;}
+  .sched-grid{border-collapse:collapse;width:auto;font-size:11px;}
+  .sched-grid th{font-size:10.5px;font-weight:700;color:var(--text-secondary);padding:4px 6px;text-align:center;}
+  .sched-hour-label{width:48px;font-size:10px;color:var(--text-secondary);padding:2px 8px;white-space:nowrap;text-align:right;box-sizing:content-box;}
   .sched-hour-label.sched-half-label{border-top:1px dashed var(--hairline);}
   .sched-cell{
-    width:34px;height:18px;border:1px solid var(--hairline);cursor:pointer;background-color:var(--bg);
+    width:34px;height:18px;border:1px solid rgba(255,255,255,0.07);cursor:pointer;background-color:var(--bg);
     background-image:linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);
   }
   .sched-cell:hover{background:rgba(37,99,235,0.15);}
-  .sched-cell.marked{background:var(--green);border-color:var(--green);}
-  .sched-cell.available{background:var(--blue);border-color:var(--blue);}
+  .sched-cell.marked{background:var(--green);}
+  .sched-cell.available{background:var(--blue);}
   .sched-cell.booked{background:var(--warning);cursor:not-allowed;}
   .sched-legend{display:flex;gap:18px;margin:12px 0 16px;font-size:12px;color:var(--text-secondary);align-items:center;}
   .sched-legend-dot{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle;}
