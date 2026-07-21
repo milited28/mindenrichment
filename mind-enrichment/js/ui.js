@@ -124,7 +124,8 @@ function renderScheduleGrid(containerId, opts){
           const endFrac = Math.max(0, Math.min(1, (b.end - h) / SLOT_DURATION));
           const startPct = (startFrac * 100).toFixed(1);
           const endPct = (endFrac * 100).toFixed(1);
-          styleAttr = ' style="background-color:var(--bg); background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%), linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);"';
+          const fringeColor = (opts.isMarked && opts.isMarked(d,h)) ? opts.fringeColor : 'var(--bg)';
+          styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%), linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);"';
         }
       }
 
@@ -207,6 +208,8 @@ async function renderParentSchedulePanel(){
       return parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty';
     },
     getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
+    isMarked: (d,h) => parentFreeHours.has(hourKey(d,h)),
+    fringeColor: 'var(--green)',
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
@@ -317,15 +320,32 @@ async function addBookedSession(role){
 
   const entry = { day, start, end, label };
   const storageKey = role + '-bookings:' + currentUser.id;
+  const availSet = role === 'parent' ? parentFreeHours : currentEduAvailableHours;
+
+  // A booked session takes priority — remove any overlapping availability so
+  // the same time isn't shown as both "available" and "booked" at once.
+  [...availSet].forEach(key => {
+    const idx = key.lastIndexOf('-');
+    if(key.slice(0, idx) !== day) return;
+    const slotHour = parseFloat(key.slice(idx + 1));
+    if(slotHour < end && (slotHour + SLOT_DURATION) > start) availSet.delete(key);
+  });
 
   if(role === 'parent'){
     parentBookedLessons.push(entry);
-    if(window.storage){ try{ window.storage.set(storageKey, JSON.stringify(parentBookedLessons), false); }catch(e){} }
+    parentSavedSchedule = compressHoursToSlots(parentFreeHours);
+    if(window.storage){
+      try{ window.storage.set(storageKey, JSON.stringify(parentBookedLessons), false); }catch(e){}
+      try{ window.storage.set('parent-schedule:' + currentUser.id, JSON.stringify(parentSavedSchedule), false); }catch(e){}
+    }
     renderParentSchedulePanel();
   } else {
     eduBookedSlots.push(entry);
-    if(window.storage){ try{ window.storage.set(storageKey, JSON.stringify(eduBookedSlots), false); }catch(e){} }
-
+    const updatedSlots = compressHoursToSlots(currentEduAvailableHours);
+    if(window.storage){
+      try{ window.storage.set(storageKey, JSON.stringify(eduBookedSlots), false); }catch(e){}
+      try{ window.storage.set('educator-schedule:' + currentUser.id, JSON.stringify(updatedSlots), false); }catch(e){}
+    }
     renderEducatorSchedulePanel();
   }
 }
@@ -388,6 +408,8 @@ async function renderEducatorSchedulePanel(){
       return currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty';
     },
     getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
+    isMarked: (d,h) => currentEduAvailableHours.has(hourKey(d,h)),
+    fringeColor: 'var(--blue)',
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');
