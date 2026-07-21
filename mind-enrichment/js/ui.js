@@ -125,7 +125,7 @@ function renderScheduleGrid(containerId, opts){
           const startPct = (startFrac * 100).toFixed(1);
           const endPct = (endFrac * 100).toFixed(1);
           const fringeColor = (opts.isMarked && opts.isMarked(d,h)) ? opts.fringeColor : 'var(--bg)';
-          styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%), linear-gradient(to bottom, transparent 49%, rgba(148,163,184,0.35) 49%, rgba(148,163,184,0.35) 51%, transparent 51%);"';
+          styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%);"';
         }
       }
 
@@ -187,6 +187,7 @@ async function renderParentSchedulePanel(){
   const el = document.getElementById('dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark your child\'s free time. Sessions already booked show automatically.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span></div>'+
+    quickAvailFormHTML('parent')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
         '<div id="parent-sched-grid"></div>'+
@@ -213,6 +214,7 @@ async function renderParentSchedulePanel(){
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
+  renderQuickAvailPickers('parent');
 }
 
 function toggleParentHour(day, hour){
@@ -242,6 +244,55 @@ function useMySavedSchedule(){
 }
 
 /* ---- Shared: booking a session from an external source (WhatsApp, existing student, etc.) ---- */
+
+function quickAvailFormHTML(role){
+  return '<div style="margin-bottom:16px;">'+
+    '<p style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.03em;margin:0 0 10px;">Quickly mark a range as available (faster than clicking each cell)</p>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'+
+      '<select id="'+role+'-avail-day" class="mini-select"></select>'+
+      '<span style="font-size:12px;color:var(--text-secondary);">from</span>'+
+      '<select id="'+role+'-avail-start" class="mini-select"></select>'+
+      '<span style="font-size:12px;color:var(--text-secondary);">to</span>'+
+      '<select id="'+role+'-avail-end" class="mini-select"></select>'+
+      '<button class="btn-outline" style="padding:6px 12px;font-size:12px;" onclick="addQuickAvailability(\''+role+'\')">+ Mark available</button>'+
+    '</div>'+
+    '<p id="'+role+'-avail-warning" style="display:none;font-size:11.5px;color:var(--error);margin:6px 0 0;">End time must be after start time.</p>'+
+  '</div>';
+}
+
+function renderQuickAvailPickers(role){
+  document.getElementById(role+'-avail-day').innerHTML = DAYS.map(d => '<option>'+d+'</option>').join('');
+  const optionsHTML = TIME_OPTIONS.map(o => '<option value="'+o.value+'">'+o.label+'</option>').join('');
+  document.getElementById(role+'-avail-start').innerHTML = optionsHTML;
+  document.getElementById(role+'-avail-end').innerHTML = optionsHTML;
+  document.getElementById(role+'-avail-end').selectedIndex = TIME_OPTIONS.length - 1;
+}
+
+function addQuickAvailability(role){
+  const day = document.getElementById(role+'-avail-day').value;
+  const start = parseFloat(document.getElementById(role+'-avail-start').value);
+  const end = parseFloat(document.getElementById(role+'-avail-end').value);
+  const warning = document.getElementById(role+'-avail-warning');
+
+  if(isNaN(start) || isNaN(end) || end <= start){
+    warning.style.display = 'block';
+    return;
+  }
+  warning.style.display = 'none';
+
+  const availSet = role === 'parent' ? parentFreeHours : currentEduAvailableHours;
+  const bookedList = role === 'parent' ? parentBookedLessons : eduBookedSlots;
+
+  // Snap to the 30-minute grid, and skip any slot that's already booked (booked always wins)
+  const snappedStart = Math.floor(start / SLOT_DURATION) * SLOT_DURATION;
+  for(let h = snappedStart; h < end - 1e-9; h += SLOT_DURATION){
+    const overlapsBooking = bookedList.some(b => b.day===day && h<b.end && (h+SLOT_DURATION)>b.start);
+    if(!overlapsBooking) availSet.add(hourKey(day, h));
+  }
+
+  if(role === 'parent') renderParentSchedulePanel();
+  else renderEducatorSchedulePanel();
+}
 
 function bookingFormHTML(role){
   return '<div style="padding-top:16px;border-top:1px solid var(--hairline);margin-bottom:16px;">'+
@@ -387,6 +438,7 @@ async function renderEducatorSchedulePanel(){
   const el = document.getElementById('edu-dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark yourself available. Booked lessons show automatically and can\'t be edited here.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span></div>'+
+    quickAvailFormHTML('educator')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
         '<div id="edu-sched-grid"></div>'+
@@ -413,6 +465,7 @@ async function renderEducatorSchedulePanel(){
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');
+  renderQuickAvailPickers('educator');
 }
 
 function toggleEducatorHour(day, hour){
