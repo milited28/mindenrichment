@@ -174,6 +174,14 @@
   .sched-cell.available{background:var(--blue);}
   .sched-cell.booked{background:var(--warning);cursor:not-allowed;}
   .sched-legend{display:flex;gap:18px;margin:12px 0 16px;font-size:12px;color:var(--text-secondary);align-items:center;}
+  .sched-layout{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin-bottom:20px;}
+  .sched-layout-grid{flex-shrink:0;}
+  .sched-layout-summary{flex:1;min-width:260px;}
+  .summary-title{font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.03em;margin:0 0 10px;}
+  .sched-summary-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .sched-summary-table th{text-align:left;font-size:11px;font-weight:700;color:var(--text-secondary);padding:6px 8px;border-bottom:1px solid var(--hairline);}
+  .sched-summary-table td{padding:8px;border-bottom:1px solid var(--hairline);}
+  .sched-summary-table tr:last-child td{border-bottom:none;}
   .sched-legend-dot{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle;}
 
   .mini-select{padding:6px 8px;border:1.5px solid var(--hairline);border-radius:8px;font-family:var(--font);font-size:12.5px;background:var(--bg);color:var(--text-primary);cursor:pointer;}

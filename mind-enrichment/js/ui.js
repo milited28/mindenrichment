@@ -143,6 +143,28 @@ let parentBookedLessons = []; // no real bookings system yet — starts empty, n
 let parentSavedSchedule = [];
 let parentScheduleLoaded = false;
 
+function renderScheduleSummaryTable(freeSet, bookedList, freeLabel){
+  const freeSlots = compressHoursToSlots(freeSet).map(s => ({...s, type: 'free'}));
+  const bookedSlots = bookedList.map(b => ({...b, type: 'booked'}));
+  const all = [...freeSlots, ...bookedSlots].sort((a,b) => {
+    const dayDiff = DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+    return dayDiff !== 0 ? dayDiff : a.start - b.start;
+  });
+
+  if(all.length === 0){
+    return '<div class="empty-state" style="padding:28px 14px;"><h3>Nothing scheduled yet</h3><p>Click the grid to mark yourself available, or add a booked session below.</p></div>';
+  }
+
+  return '<table class="sched-summary-table"><thead><tr><th>Day</th><th>Time</th><th>Type</th></tr></thead><tbody>'+
+    all.map(s => {
+      const typeTag = s.type === 'booked'
+        ? '<span class="status-pill searching">Booked'+(s.label ? ': '+s.label : '')+'</span>'
+        : '<span class="status-pill matched">'+freeLabel+'</span>';
+      return '<tr><td>'+s.day+'</td><td>'+formatTimeDecimal(s.start)+'–'+formatTimeDecimal(s.end)+'</td><td>'+typeTag+'</td></tr>';
+    }).join('')+
+  '</tbody></table>';
+}
+
 async function renderParentSchedulePanel(){
   if(!parentScheduleLoaded){
     parentScheduleLoaded = true;
@@ -164,10 +186,18 @@ async function renderParentSchedulePanel(){
   const el = document.getElementById('dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark your child\'s free time. Sessions already booked show automatically.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span></div>'+
-    '<div id="parent-sched-grid"></div>'+
-    '<div style="display:flex;gap:10px;align-items:center;margin-top:16px;margin-bottom:20px;">'+
-      '<button class="btn-ask" onclick="saveParentSchedule()">Save schedule</button>'+
-      '<span id="parent-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved — available to use in search filters ✓</span>'+
+    '<div class="sched-layout">'+
+      '<div class="sched-layout-grid">'+
+        '<div id="parent-sched-grid"></div>'+
+        '<div style="display:flex;gap:10px;align-items:center;margin-top:16px;">'+
+          '<button class="btn-ask" onclick="saveParentSchedule()">Save schedule</button>'+
+          '<span id="parent-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved — available to use in search filters ✓</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sched-layout-summary">'+
+        '<p class="summary-title">All scheduled times</p>'+
+        renderScheduleSummaryTable(parentFreeHours, parentBookedLessons, 'Free')+
+      '</div>'+
     '</div>'+
     bookingFormHTML('parent')+
     bookingListHTML(parentBookedLessons, 'parent');
@@ -337,10 +367,18 @@ async function renderEducatorSchedulePanel(){
   const el = document.getElementById('edu-dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark yourself available. Booked lessons show automatically and can\'t be edited here.</p>'+
     '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span></div>'+
-    '<div id="edu-sched-grid"></div>'+
-    '<div style="display:flex;gap:10px;align-items:center;margin-top:16px;margin-bottom:20px;">'+
-      '<button class="btn-ask" onclick="saveEducatorSchedule()">Save schedule</button>'+
-      '<span id="edu-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved ✓</span>'+
+    '<div class="sched-layout">'+
+      '<div class="sched-layout-grid">'+
+        '<div id="edu-sched-grid"></div>'+
+        '<div style="display:flex;gap:10px;align-items:center;margin-top:16px;">'+
+          '<button class="btn-ask" onclick="saveEducatorSchedule()">Save schedule</button>'+
+          '<span id="edu-sched-saved-msg" style="display:none;font-size:12.5px;color:var(--green-text);font-weight:700;">Saved ✓</span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sched-layout-summary">'+
+        '<p class="summary-title">All scheduled times</p>'+
+        renderScheduleSummaryTable(currentEduAvailableHours, eduBookedSlots, 'Available')+
+      '</div>'+
     '</div>'+
     bookingFormHTML('educator')+
     bookingListHTML(eduBookedSlots, 'educator');
