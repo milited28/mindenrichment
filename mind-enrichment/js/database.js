@@ -264,6 +264,7 @@ const HOUR_MARKS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
 const GRID_HOURS = HOUR_MARKS.slice(0, -1); // 7am..9pm start-hours, for the weekly grid
 
 const SLOT_DURATION = 0.5; // grid marking granularity, in hours (30 minutes)
+const TRANSIT_BUFFER = 0.25; // 15-minute buffer auto-blocked before/after every booking, for travel between locations
 const GRID_SLOTS = (() => {
   const slots = [];
   for(let h = 7; h < 22; h += SLOT_DURATION) slots.push(h);

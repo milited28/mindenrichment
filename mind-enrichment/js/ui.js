@@ -112,7 +112,7 @@ function renderScheduleGrid(containerId, opts){
     html += '<tr><td class="sched-hour-label'+(isWholeHour ? '' : ' sched-half-label')+'">'+(isWholeHour ? hourLabel(h) : '')+'</td>';
     DAYS.forEach(d => {
       const state = opts.getCellState(d, h);
-      const clickable = state !== 'booked';
+      const clickable = state !== 'booked' && state !== 'buffer';
       let styleAttr = '';
       let title = '';
 
@@ -127,6 +127,10 @@ function renderScheduleGrid(containerId, opts){
           const fringeColor = (opts.isMarked && opts.isMarked(d,h)) ? opts.fringeColor : 'var(--bg)';
           styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%);"';
         }
+      }
+
+      if(state === 'buffer'){
+        title = 'Travel buffer (15 min)';
       }
 
       html += '<td class="sched-cell '+state+'"'+styleAttr+' '+(clickable ? 'onclick="'+opts.onClickName+'(\''+d+'\','+h+')"' : '')+' title="'+title+'"></td>';
@@ -186,7 +190,7 @@ async function renderParentSchedulePanel(){
 
   const el = document.getElementById('dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark your child\'s free time. Sessions already booked show automatically.</p>'+
-    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span></div>'+
+    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span><span><span class="sched-legend-dot" style="background:repeating-linear-gradient(45deg, rgba(148,163,184,0.6), rgba(148,163,184,0.6) 2px, transparent 2px, transparent 4px);"></span>Travel buffer</span></div>'+
     quickAvailFormHTML('parent')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
@@ -206,6 +210,7 @@ async function renderParentSchedulePanel(){
   renderScheduleGrid('parent-sched-grid', {
     getCellState: (d,h) => {
       if(parentBookedLessons.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
+      if(parentBookedLessons.some(b => b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER))) return 'buffer';
       return parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty';
     },
     getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
@@ -283,10 +288,11 @@ function addQuickAvailability(role){
   const availSet = role === 'parent' ? parentFreeHours : currentEduAvailableHours;
   const bookedList = role === 'parent' ? parentBookedLessons : eduBookedSlots;
 
-  // Snap to the 30-minute grid, and skip any slot that's already booked (booked always wins)
+  // Snap to the 30-minute grid, and skip any slot too close to an existing
+  // booking — booked time plus the 15-minute travel buffer always wins.
   const snappedStart = Math.floor(start / SLOT_DURATION) * SLOT_DURATION;
   for(let h = snappedStart; h < end - 1e-9; h += SLOT_DURATION){
-    const overlapsBooking = bookedList.some(b => b.day===day && h<b.end && (h+SLOT_DURATION)>b.start);
+    const overlapsBooking = bookedList.some(b => b.day===day && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER));
     if(!overlapsBooking) availSet.add(hourKey(day, h));
   }
 
@@ -373,13 +379,15 @@ async function addBookedSession(role){
   const storageKey = role + '-bookings:' + currentUser.id;
   const availSet = role === 'parent' ? parentFreeHours : currentEduAvailableHours;
 
-  // A booked session takes priority — remove any overlapping availability so
-  // the same time isn't shown as both "available" and "booked" at once.
+  // A booked session takes priority — remove any overlapping availability, plus
+  // a 15-minute buffer before/after for the tutor to travel between locations.
+  const bufferedStart = start - TRANSIT_BUFFER;
+  const bufferedEnd = end + TRANSIT_BUFFER;
   [...availSet].forEach(key => {
     const idx = key.lastIndexOf('-');
     if(key.slice(0, idx) !== day) return;
     const slotHour = parseFloat(key.slice(idx + 1));
-    if(slotHour < end && (slotHour + SLOT_DURATION) > start) availSet.delete(key);
+    if(slotHour < bufferedEnd && (slotHour + SLOT_DURATION) > bufferedStart) availSet.delete(key);
   });
 
   if(role === 'parent'){
@@ -437,7 +445,7 @@ async function renderEducatorSchedulePanel(){
 
   const el = document.getElementById('edu-dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark yourself available. Booked lessons show automatically and can\'t be edited here.</p>'+
-    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span></div>'+
+    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span><span><span class="sched-legend-dot" style="background:repeating-linear-gradient(45deg, rgba(148,163,184,0.6), rgba(148,163,184,0.6) 2px, transparent 2px, transparent 4px);"></span>Travel buffer</span></div>'+
     quickAvailFormHTML('educator')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
@@ -457,6 +465,7 @@ async function renderEducatorSchedulePanel(){
   renderScheduleGrid('edu-sched-grid', {
     getCellState: (d,h) => {
       if(eduBookedSlots.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
+      if(eduBookedSlots.some(b => b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER))) return 'buffer';
       return currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty';
     },
     getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
