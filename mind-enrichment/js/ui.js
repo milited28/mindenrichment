@@ -111,29 +111,31 @@ function renderScheduleGrid(containerId, opts){
     const isWholeHour = Math.abs(h % 1) < 1e-9;
     html += '<tr><td class="sched-hour-label'+(isWholeHour ? '' : ' sched-half-label')+'">'+(isWholeHour ? hourLabel(h) : '')+'</td>';
     DAYS.forEach(d => {
-      const state = opts.getCellState(d, h);
-      const clickable = state !== 'booked' && state !== 'buffer';
+      let state = opts.getCellState(d, h);
+      const booking = opts.getBookingTouching ? opts.getBookingTouching(d, h) : null;
       let styleAttr = '';
       let title = '';
 
-      if(state === 'booked' && opts.getBookedEntry){
-        const b = opts.getBookedEntry(d, h);
-        if(b){
-          title = b.label + ' (' + formatTimeDecimal(b.start) + '–' + formatTimeDecimal(b.end) + ')';
-          const startFrac = Math.max(0, Math.min(1, (b.start - h) / SLOT_DURATION));
-          const endFrac = Math.max(0, Math.min(1, (b.end - h) / SLOT_DURATION));
-          const startPct = (startFrac * 100).toFixed(1);
-          const endPct = (endFrac * 100).toFixed(1);
-          const fringeColor = (opts.isMarked && opts.isMarked(d,h)) ? opts.fringeColor : 'var(--bg)';
-          styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, transparent 0%, transparent '+startPct+'%, var(--warning) '+startPct+'%, var(--warning) '+endPct+'%, transparent '+endPct+'%, transparent 100%);"';
-        }
+      if(booking){
+        state = 'occupied';
+        title = booking.label + ' (' + formatTimeDecimal(booking.start) + '–' + formatTimeDecimal(booking.end) + ') · 15-min travel buffer either side';
+        const bufStart = booking.start - TRANSIT_BUFFER;
+        const bufEnd = booking.end + TRANSIT_BUFFER;
+        const frac = (t) => Math.max(0, Math.min(1, (t - h) / SLOT_DURATION)) * 100;
+        const p1 = frac(bufStart).toFixed(1);
+        const p2 = frac(booking.start).toFixed(1);
+        const p3 = frac(booking.end).toFixed(1);
+        const p4 = frac(bufEnd).toFixed(1);
+        styleAttr = ' style="background-color:var(--bg); background-image:linear-gradient(to bottom, '+
+          'transparent 0%, transparent '+p1+'%, '+
+          'rgba(100,116,139,0.55) '+p1+'%, rgba(100,116,139,0.55) '+p2+'%, '+
+          'var(--warning) '+p2+'%, var(--warning) '+p3+'%, '+
+          'rgba(100,116,139,0.55) '+p3+'%, rgba(100,116,139,0.55) '+p4+'%, '+
+          'transparent '+p4+'%, transparent 100%);"';
       }
 
-      if(state === 'buffer'){
-        title = 'Travel buffer (15 min)';
-      }
-
-      html += '<td class="sched-cell '+state+'"'+styleAttr+' '+(clickable ? 'onclick="'+opts.onClickName+'(\''+d+'\','+h+')"' : '')+' title="'+title+'"></td>';
+      const isClickable = state !== 'occupied';
+      html += '<td class="sched-cell '+state+'"'+styleAttr+' '+(isClickable ? 'onclick="'+opts.onClickName+'(\''+d+'\','+h+')"' : '')+' title="'+title+'"></td>';
     });
     html += '</tr>';
   });
@@ -190,7 +192,7 @@ async function renderParentSchedulePanel(){
 
   const el = document.getElementById('dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark your child\'s free time. Sessions already booked show automatically.</p>'+
-    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span><span><span class="sched-legend-dot" style="background:repeating-linear-gradient(45deg, rgba(148,163,184,0.6), rgba(148,163,184,0.6) 2px, transparent 2px, transparent 4px);"></span>Travel buffer</span></div>'+
+    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--green);"></span>Free time</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Scheduled tuition</span><span><span class="sched-legend-dot" style="background:rgba(100,116,139,0.85);"></span>Travel buffer</span></div>'+
     quickAvailFormHTML('parent')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
@@ -208,14 +210,8 @@ async function renderParentSchedulePanel(){
     bookingFormHTML('parent')+
     bookingListHTML(parentBookedLessons, 'parent');
   renderScheduleGrid('parent-sched-grid', {
-    getCellState: (d,h) => {
-      if(parentBookedLessons.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
-      if(parentBookedLessons.some(b => b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER))) return 'buffer';
-      return parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty';
-    },
-    getBookedEntry: (d,h) => parentBookedLessons.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
-    isMarked: (d,h) => parentFreeHours.has(hourKey(d,h)),
-    fringeColor: 'var(--green)',
+    getCellState: (d,h) => parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty',
+    getBookingTouching: (d,h) => parentBookedLessons.find(b=>b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER)),
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
@@ -252,7 +248,6 @@ function useMySavedSchedule(){
 
 function quickAvailFormHTML(role){
   return '<div style="margin-bottom:16px;">'+
-    '<p style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.03em;margin:0 0 10px;">Quickly mark a range as available (faster than clicking each cell)</p>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'+
       '<select id="'+role+'-avail-day" class="mini-select"></select>'+
       '<span style="font-size:12px;color:var(--text-secondary);">from</span>'+
@@ -445,7 +440,7 @@ async function renderEducatorSchedulePanel(){
 
   const el = document.getElementById('edu-dash-panel');
   el.innerHTML = '<h3>My schedule</h3><p class="panel-sub">Click a cell to mark yourself available. Booked lessons show automatically and can\'t be edited here.</p>'+
-    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span><span><span class="sched-legend-dot" style="background:repeating-linear-gradient(45deg, rgba(148,163,184,0.6), rgba(148,163,184,0.6) 2px, transparent 2px, transparent 4px);"></span>Travel buffer</span></div>'+
+    '<div class="sched-legend"><span><span class="sched-legend-dot" style="background:var(--blue);"></span>Available</span><span><span class="sched-legend-dot" style="background:var(--warning);"></span>Booked lesson</span><span><span class="sched-legend-dot" style="background:rgba(100,116,139,0.85);"></span>Travel buffer</span></div>'+
     quickAvailFormHTML('educator')+
     '<div class="sched-layout">'+
       '<div class="sched-layout-grid">'+
@@ -463,14 +458,8 @@ async function renderEducatorSchedulePanel(){
     bookingFormHTML('educator')+
     bookingListHTML(eduBookedSlots, 'educator');
   renderScheduleGrid('edu-sched-grid', {
-    getCellState: (d,h) => {
-      if(eduBookedSlots.some(b => b.day===d && h<b.end && (h+SLOT_DURATION)>b.start)) return 'booked';
-      if(eduBookedSlots.some(b => b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER))) return 'buffer';
-      return currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty';
-    },
-    getBookedEntry: (d,h) => eduBookedSlots.find(b=>b.day===d && h<b.end && (h+SLOT_DURATION)>b.start),
-    isMarked: (d,h) => currentEduAvailableHours.has(hourKey(d,h)),
-    fringeColor: 'var(--blue)',
+    getCellState: (d,h) => currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty',
+    getBookingTouching: (d,h) => eduBookedSlots.find(b=>b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER)),
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');
