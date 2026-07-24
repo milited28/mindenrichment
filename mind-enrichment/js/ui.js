@@ -126,7 +126,8 @@ function renderScheduleGrid(containerId, opts){
         const p2 = frac(booking.start).toFixed(1);
         const p3 = frac(booking.end).toFixed(1);
         const p4 = frac(bufEnd).toFixed(1);
-        styleAttr = ' style="background-color:var(--bg); background-image:linear-gradient(to bottom, '+
+        const fringeColor = (opts.isMarked && opts.isMarked(d,h)) ? opts.fringeColor : 'var(--bg)';
+        styleAttr = ' style="background-color:'+fringeColor+'; background-image:linear-gradient(to bottom, '+
           'transparent 0%, transparent '+p1+'%, '+
           'rgba(100,116,139,0.55) '+p1+'%, rgba(100,116,139,0.55) '+p2+'%, '+
           'var(--warning) '+p2+'%, var(--warning) '+p3+'%, '+
@@ -212,6 +213,8 @@ async function renderParentSchedulePanel(){
   renderScheduleGrid('parent-sched-grid', {
     getCellState: (d,h) => parentFreeHours.has(hourKey(d,h)) ? 'marked' : 'empty',
     getBookingTouching: (d,h) => parentBookedLessons.find(b=>b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER)),
+    isMarked: (d,h) => parentFreeHours.has(hourKey(d,h)),
+    fringeColor: 'var(--green)',
     onClickName: 'toggleParentHour'
   });
   renderBookingPickers('parent');
@@ -460,6 +463,8 @@ async function renderEducatorSchedulePanel(){
   renderScheduleGrid('edu-sched-grid', {
     getCellState: (d,h) => currentEduAvailableHours.has(hourKey(d,h)) ? 'available' : 'empty',
     getBookingTouching: (d,h) => eduBookedSlots.find(b=>b.day===d && h<(b.end+TRANSIT_BUFFER) && (h+SLOT_DURATION)>(b.start-TRANSIT_BUFFER)),
+    isMarked: (d,h) => currentEduAvailableHours.has(hourKey(d,h)),
+    fringeColor: 'var(--blue)',
     onClickName: 'toggleEducatorHour'
   });
   renderBookingPickers('educator');
